@@ -72,24 +72,64 @@ class TestFileStorage(unittest.TestCase):
     """Test the FileStorage class"""
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_all_returns_dict(self):
-        """Test that all returns a dictionaty"""
+        """Test that all returns a dictionary"""
         self.assertIs(type(models.storage.all()), dict)
-
-    @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
-    def test_all_no_class(self):
-        """Test that all returns all rows when no class is passed"""
 
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_new(self):
         """test that new adds an object to the database"""
+        db_storage = DBStorage()
+        save = DBStorage._DBStorage__objects
+        DBStorage._DBStorage__objects = {}
+        test_dict = {}
+        for key, value in classes.items():
+            with self.subTest(key=key, value=value):
+                instance = value()
+                instance_key = instance.__class__.__name__ + "." + instance.id
+                db_storage.new(instance)
+                test_dict[instance_key] = instance
+                self.assertEqual(test_dict, db_storage._DBStorage__objects)
+        DBStorage.DBStorage = save
 
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_save(self):
         """Test that save properly saves objects to file.json"""
+        db_storage = DBStorage()
+        new_dict = {}
+        for key, value in classes.items():
+            instance = value()
+            instance_key = instance.__class__.__name__ + "." + instance.id
+            new_dict[instance_key] = instance
+        save = DBStorage._DBStorage__objects
+        DBStorage._DBStorage__objects = new_dict
+        db_storage.save()
+        DBStorage._DBStorage__objects = save
+        for key, value in new_dict.items():
+            new_dict[key] = value.to_dict()
+        string = json.dumps(new_dict)
+        with open("file.json", "r") as file:
+            js = file.read()
+        self.assertEqual(json.loads(string), json.loads(js))
+
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_get(self):
-        """Test that get retrieves an item in db properly"""
+        """Tests that obtaining an object from file storage"""
+        db_storage = DBStorage()
+        my_obj = {"name": "AmuElla"}
+        instance = State(**my_obj)
+        db_storage.new(instance)
+        db_storage.save()
+        self.assertEqual(db_storage.get(State, instance.id), instance)
 
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_count(self):
-        """Test that count returns the right number of elements in the db"""
+        """Tests that return number of objects in file storage"""
+        db_storage = DBStorage()
+        my_obj = {"name": "AmuElla"}
+        state = State(**my_obj)
+        db_storage.new(state)
+        my_obj = {"name": "Canada"}
+        city = City(**my_obj)
+        db_storage.new(city)
+        db_storage.save()
+        self.assertEqual(len(db_storage.all()), db_storage.count())
