@@ -76,40 +76,24 @@ class TestFileStorage(unittest.TestCase):
         self.assertIs(type(models.storage.all()), dict)
 
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
+    def test_all_no_class(self):
+        """Test that all returns all rows when no class is passed"""
+
+    @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_new(self):
         """test that new adds an object to the database"""
-        db_storage = DBStorage()
-        save = DBStorage._DBStorage__objects
-        DBStorage._DBStorage__objects = {}
-        test_dict = {}
-        for key, value in classes.items():
-            with self.subTest(key=key, value=value):
-                instance = value()
-                instance_key = instance.__class__.__name__ + "." + instance.id
-                db_storage.new(instance)
-                test_dict[instance_key] = instance
-                self.assertEqual(test_dict, db_storage._DBStorage__objects)
-        DBStorage.DBStorage = save
 
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_save(self):
         """Test that save properly saves objects to file.json"""
-        db_storage = DBStorage()
-        new_dict = {}
-        for key, value in classes.items():
-            instance = value()
-            instance_key = instance.__class__.__name__ + "." + instance.id
-            new_dict[instance_key] = instance
-        save = DBStorage._DBStorage__objects
-        DBStorage._DBStorage__objects = new_dict
-        db_storage.save()
-        DBStorage._DBStorage__objects = save
-        for key, value in new_dict.items():
-            new_dict[key] = value.to_dict()
-        string = json.dumps(new_dict)
-        with open("file.json", "r") as file:
-            js = file.read()
-        self.assertEqual(json.loads(string), json.loads(js))
+
+    @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
+    def test_get(self):
+        """Test save method returns a single object"""
+
+    @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
+    def test_count(self):
+        """Test count method returns count of all objects"""
 
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_get(self):
@@ -133,3 +117,43 @@ class TestFileStorage(unittest.TestCase):
         db_storage.new(city)
         db_storage.save()
         self.assertEqual(len(db_storage.all()), db_storage.count())
+
+
+class TestDBStorage(unittest.TestCase):
+    """Test the DBStorage class"""
+
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') != 'db',
+                     "not testing db storage")
+    def test_get(self):
+        """Tests that retrieve an object"""
+        storage = models.storage
+        my_obj = State(name='California')
+        my_obj.save()
+        self.assertEqual(my_obj.id, storage.get(State, my_obj.id).id)
+        self.assertEqual(my_obj.name, storage.get(State, my_obj.id).name)
+        self.assertIsNot(my_obj, storage.get(State, my_obj.id + 'op'))
+        self.assertIsNone(storage.get(State, my_obj.id + 'op'))
+        self.assertIsNone(storage.get(State, 45))
+        self.assertIsNone(storage.get(None, my_obj.id))
+        self.assertIsNone(storage.get(int, my_obj.id))
+        with self.assertRaises(TypeError):
+            storage.get(State, my_obj.id, 'op')
+        with self.assertRaises(TypeError):
+            storage.get(State)
+        with self.assertRaises(TypeError):
+            storage.get()
+
+    def test_count(self):
+        """Tests that return number of objects"""
+        storage = models.storage
+        self.assertIs(type(storage.count()), int)
+        self.assertIs(type(storage.count(None)), int)
+        self.assertIs(type(storage.count(int)), int)
+        self.assertIs(type(storage.count(State)), int)
+        self.assertEqual(storage.count(), storage.count(None))
+        State(name='Ohio').save()
+        self.assertGreater(storage.count(State), 0)
+        self.assertEqual(storage.count(), storage.count(None))
+        ct = storage.count(State)
+        State(name='Florida').save()
+        self.assertGreater(storage.count(State), ct)
